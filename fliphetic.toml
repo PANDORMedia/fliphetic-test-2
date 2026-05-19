@@ -16,3 +16,13 @@ dmd       = { service = "dmd",       port = 80 }
 [compose]
 file = "deploy/docker-compose.yml"
 ready_timeout = 15
+
+# Sample ESP32 firmware: MicroPython 1.22 generic ESP32 (combined image at 0x1000).
+# Different version from hello-fliphetic so you can verify the cab actually
+# flashed *this* app's binary when switching. required=false so the load still
+# works on cabs without an ESP wired up.
+[esp32.esp32]
+firmware   = "firmware/build/firmware.bin"
+chip       = "esp32"
+flash_addr = "0x1000"
+required   = false
