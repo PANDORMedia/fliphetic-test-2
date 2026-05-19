@@ -1,0 +1,33 @@
+services:
+  playfield:
+    image: nginx:alpine
+    volumes:
+      - ../playfield:/usr/share/nginx/html:ro
+    ports: ["0:80"]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/"]
+      interval: 5s
+      timeout: 2s
+      retries: 5
+
+  backglass:
+    image: nginx:alpine
+    volumes:
+      - ../backglass:/usr/share/nginx/html:ro
+    ports: ["0:80"]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/"]
+      interval: 5s
+      timeout: 2s
+      retries: 5
+
+  dmd:
+    image: nginx:alpine
+    volumes:
+      - ../dmd:/usr/share/nginx/html:ro
+    ports: ["0:80"]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/"]
+      interval: 5s
+      timeout: 2s
+      retries: 5

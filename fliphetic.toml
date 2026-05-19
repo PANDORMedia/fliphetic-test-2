@@ -1,0 +1,18 @@
+[app]
+id          = "fliphetic-test-2"
+name        = "Fliphetic Test #2"
+authors     = ["PANDOR Media"]
+description = "Second sample app: animated color placeholders + DMD-style scrolling logo. For testing app-switch on the cab."
+
+[deploy]
+strategy = "branch"
+ref      = "main"
+
+[screens]
+playfield = { service = "playfield", port = 80 }
+backglass = { service = "backglass", port = 80 }
+dmd       = { service = "dmd",       port = 80 }
+
+[compose]
+file = "deploy/docker-compose.yml"
+ready_timeout = 15

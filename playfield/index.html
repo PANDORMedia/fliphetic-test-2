@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>TEST #2 · Playfield</title>
+  <style>
+    :root { --vh: 100vh; --vw: 100vw; }
+    html, body { margin: 0; padding: 0; height: 100%; background: #000; color: #fff;
+                 font-family: ui-sans-serif, system-ui, sans-serif; overflow: hidden; }
+
+    /* Background image — fills the portrait monitor, slowly hue-cycles. */
+    .bg {
+      position: fixed; inset: 0;
+      background: #000 url('/bg.png') center/cover no-repeat;
+      animation: hueShift 14s linear infinite;
+      filter: saturate(1.2);
+    }
+    @keyframes hueShift {
+      0%   { filter: saturate(1.2) hue-rotate(0deg); }
+      100% { filter: saturate(1.2) hue-rotate(360deg); }
+    }
+
+    /* Diagonal animated tint over the image. */
+    .tint {
+      position: fixed; inset: 0; mix-blend-mode: overlay; opacity: .65;
+      background: linear-gradient(135deg,
+        hsl(330 90% 55%) 0%, hsl(280 90% 55%) 25%, hsl(210 90% 55%) 50%,
+        hsl(150 90% 55%) 75%, hsl(50 90% 55%) 100%);
+      background-size: 200% 200%;
+      animation: gradientPan 10s ease-in-out infinite alternate;
+    }
+    @keyframes gradientPan {
+      0%   { background-position: 0% 0%; }
+      100% { background-position: 100% 100%; }
+    }
+
+    /* Vignette + label. */
+    .vignette { position: fixed; inset: 0; background: radial-gradient(closest-side,
+                  transparent 55%, rgba(0,0,0,0.85) 100%); pointer-events: none; }
+    .label {
+      position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
+      font-size: 8vw; font-weight: 900; letter-spacing: -0.04em; line-height: 0.9;
+      text-align: center; text-transform: uppercase;
+      background: linear-gradient(180deg, #fff, #ffd400 60%, #ff4f00);
+      -webkit-background-clip: text; color: transparent;
+      text-shadow: 0 0 6vw rgba(255, 200, 0, 0.25);
+      animation: bob 4s ease-in-out infinite;
+    }
+    @keyframes bob {
+      0%, 100% { transform: translate(-50%, -52%); }
+      50%      { transform: translate(-50%, -48%); }
+    }
+    .label small { display: block; margin-top: 2vh; font-size: 2.4vw; font-weight: 500;
+                   letter-spacing: 0.3em; color: #fff; -webkit-text-fill-color: #fff;
+                   opacity: .9; text-shadow: 0 0 1vw rgba(0,0,0,.6); }
+
+    /* Corner role badge so it's obvious which screen this is. */
+    .role { position: fixed; left: 2vw; top: 2vw; padding: 1vw 2vw;
+            background: rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.35);
+            border-radius: 1vw; letter-spacing: 0.25em; font-size: 2vw; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <div class="bg"></div>
+  <div class="tint"></div>
+  <div class="vignette"></div>
+  <div class="role">PLAYFIELD</div>
+  <div class="label">TEST #2<small>fliphetic switching demo</small></div>
+</body>
+</html>
