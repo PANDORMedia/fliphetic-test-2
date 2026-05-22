@@ -20,11 +20,12 @@ file = "deploy/docker-compose.yml"
 ready_timeout = 30
 
 # The cabinet flashes the button/LED tester firmware to the "esp32" device on
-# every load. required = false: a missing board or a failed flash only logs a
-# warning, it does not abort the load. The merged binary is built and committed
-# by .github/workflows/firmware.yml.
+# every load. The merged binary is built and committed by
+# .github/workflows/firmware.yml. baud is set to 115200 deliberately — the
+# 921600 default was dropping the chip mid-write ("chip stopped responding").
 [esp32.esp32]
 firmware   = "firmware/build/firmware.bin"
 chip       = "esp32"
 flash_addr = "0x0"
+baud       = 115200
 required   = false
