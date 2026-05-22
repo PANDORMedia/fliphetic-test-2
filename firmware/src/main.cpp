@@ -49,7 +49,7 @@ Button buttons[] = {
   { "black-right",       13, NO_LED, false, false, 0 },
   { "white-right",       25, NO_LED, false, false, 0 },
   { "front-white",       33, NO_LED, false, false, 0 },
-  { "plunger",           34, NO_LED, false, false, 0 },  // input-only pin
+  { "plunger",           32, NO_LED, false, false, 0 },
 };
 const int N = sizeof(buttons) / sizeof(buttons[0]);
 

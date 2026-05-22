@@ -64,9 +64,8 @@
     {
       "id": "plunger",
       "label": "Plunger",
-      "gpio": 34,
+      "gpio": 32,
       "active_low": true,
-      "input_only": true,
       "led": false
     }
   ]
