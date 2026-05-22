@@ -29,6 +29,12 @@ jobs:
         run: pip install platformio esptool
 
       - name: Build
+        # WIFI_PASS is injected as a build flag from the repo secret so the
+        # FLIPHETIC_CAB0 passphrase never lands in the source. (It is still
+        # embedded in the committed binary, so keep that AP passphrase
+        # dedicated — never reuse the cab's SSH/account password for it.)
+        env:
+          PLATFORMIO_BUILD_FLAGS: -DWIFI_PASS='"${{ secrets.WIFI_PASS }}"'
         run: pio run --project-dir firmware
 
       - name: Merge into a single image
