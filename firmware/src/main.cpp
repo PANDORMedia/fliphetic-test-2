@@ -3,9 +3,13 @@
  *
  * Classic ESP32. Reads each cabinet button (wired to GND, read with an
  * internal pull-up) and drives the indicator LEDs in a repeating cycle so
- * every LED can be eyeballed in turn. Emits the live state as one JSON line
- * per tick over USB serial at 115200 baud; the `bridge` service reads that
- * and the debug screen polls the bridge.
+ * every LED can be eyeballed in turn. Emits the live state as a JSON line
+ * over USB serial at 115200 baud; the `bridge` service reads that and
+ * pushes it to the debug screen.
+ *
+ * Reporting is event-driven: a line is sent the instant a debounced button
+ * (or the LED cycle) changes, plus a slow heartbeat so liveness is visible.
+ * This keeps press-to-screen latency low.
  *
  * Keep this table in sync with site/config/buttons.json:
  *   buttons.json "gpio"     -> btnPin
@@ -19,10 +23,10 @@
 
 #include <Arduino.h>
 
-static const uint32_t BAUD        = 115200;
-static const uint32_t DEBOUNCE_MS = 8;     // matches buttons.json debounce_ms
-static const uint32_t CYCLE_MS    = 600;   // matches buttons.json led_cycle_ms
-static const uint32_t REPORT_MS   = 50;    // serial report interval (~20 Hz)
+static const uint32_t BAUD         = 115200;
+static const uint32_t DEBOUNCE_MS  = 8;     // matches buttons.json debounce_ms
+static const uint32_t CYCLE_MS     = 600;   // matches buttons.json led_cycle_ms
+static const uint32_t HEARTBEAT_MS = 250;   // max gap between reports when idle
 
 static const int NO_LED = -1;
 
@@ -70,6 +74,29 @@ void applyLeds() {
   }
 }
 
+// one JSON state line
+void report() {
+  Serial.print("{\"buttons\":{");
+  for (int i = 0; i < N; i++) {
+    Serial.print('"');
+    Serial.print(buttons[i].id);
+    Serial.print("\":");
+    Serial.print(buttons[i].stable ? "true" : "false");
+    if (i < N - 1) Serial.print(',');
+  }
+  Serial.print("},\"led\":");
+  if (litIndex >= 0) {
+    Serial.print('"');
+    Serial.print(buttons[litIndex].id);
+    Serial.print('"');
+  } else {
+    Serial.print("null");
+  }
+  Serial.print(",\"up\":");
+  Serial.print(millis());
+  Serial.println("}");
+}
+
 void setup() {
   Serial.begin(BAUD);
   for (int i = 0; i < N; i++) {
@@ -87,6 +114,7 @@ void setup() {
 
 void loop() {
   uint32_t now = millis();
+  bool dirty = false;
 
   // debounced button read (active-low: pressed reads LOW)
   for (int i = 0; i < N; i++) {
@@ -95,39 +123,24 @@ void loop() {
       buttons[i].lastRead = pressed;
       buttons[i].changedAt = now;
     }
-    if (now - buttons[i].changedAt >= DEBOUNCE_MS) {
+    if (now - buttons[i].changedAt >= DEBOUNCE_MS && buttons[i].stable != pressed) {
       buttons[i].stable = pressed;
+      dirty = true;            // a debounced button state changed
     }
   }
 
   // LED cycle — one lit at a time, advancing every CYCLE_MS
   if (now - lastCycle >= CYCLE_MS) {
     lastCycle = now;
+    int prev = litIndex;
     advanceCycle();
     applyLeds();
+    if (litIndex != prev) dirty = true;
   }
 
-  // report state as one JSON line
-  if (now - lastReport >= REPORT_MS) {
+  // report immediately on any change, otherwise on a slow heartbeat
+  if (dirty || now - lastReport >= HEARTBEAT_MS) {
     lastReport = now;
-    Serial.print("{\"buttons\":{");
-    for (int i = 0; i < N; i++) {
-      Serial.print('"');
-      Serial.print(buttons[i].id);
-      Serial.print("\":");
-      Serial.print(buttons[i].stable ? "true" : "false");
-      if (i < N - 1) Serial.print(',');
-    }
-    Serial.print("},\"led\":");
-    if (litIndex >= 0) {
-      Serial.print('"');
-      Serial.print(buttons[litIndex].id);
-      Serial.print('"');
-    } else {
-      Serial.print("null");
-    }
-    Serial.print(",\"up\":");
-    Serial.print(now);
-    Serial.println("}");
+    report();
   }
 }

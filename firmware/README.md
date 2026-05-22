@@ -9,17 +9,18 @@ LED lights.
 - Reads each button (wired between a GPIO and GND, internal pull-up).
 - Drives the indicator LEDs in a repeating **cycle** — one lit at a time,
   600 ms each — so you can watch each LED come on in turn.
-- Emits the live state as one JSON line per tick over USB serial, 115200 baud:
+- Emits a JSON state line over USB serial (115200 baud) the instant a
+  debounced button or the LED cycle changes, plus a heartbeat every 250 ms:
 
   ```json
-  {"buttons":{"flipper-left":true,"flipper-right":false,"plunger":false,"start":false,"nudge":false},"led":"plunger","up":48213}
+  {"buttons":{"black-left":true,"white-left":false,"...":false},"led":null,"up":48213}
   ```
 
   `buttons` is each button id → pressed; `led` is the id of the button whose
   LED is currently lit in the cycle (or `null` if no button has an LED).
 
-The `bridge` service reads this serial stream; the debug screen polls the
-bridge and shows it on the playfield view.
+The `bridge` service reads this serial stream and pushes each line to the
+debug screen over SSE, so a press shows up with no polling delay.
 
 ## The shared contract: `buttons.json`
 

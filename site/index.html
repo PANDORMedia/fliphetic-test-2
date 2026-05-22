@@ -437,36 +437,39 @@
       }
 
       const statusEl = $("bp-status"), cycleEl = $("bp-cycle");
-      let lastUp = null, stale = 0;
+      let lastEventAt = 0;
 
-      async function poll() {
-        let snap = null;
-        try {
-          const r = await fetch("state", { cache: "no-store" });
-          if (r.ok) snap = await r.json();
-        } catch (e) { /* bridge unreachable */ }
-
-        if (!snap || !snap.buttons) {
-          statusEl.textContent = "WAITING FOR ESP…";
-          statusEl.style.color = "var(--green-dim)";
-          return;
-        }
-        // the ESP's `up` (millis) should keep advancing; if it freezes the
-        // board has stopped reporting
-        if (snap.up === lastUp) stale++; else { stale = 0; lastUp = snap.up; }
-        const lost = stale > 12;
-        statusEl.textContent = lost ? "ESP SIGNAL LOST" : "ESP CONNECTED";
-        statusEl.style.color = lost ? "#d8a25d" : "var(--green-bright)";
-
+      function applyState(snap) {
+        if (!snap || !snap.buttons) return;
+        lastEventAt = Date.now();
+        statusEl.textContent = "ESP CONNECTED";
+        statusEl.style.color = "var(--green-bright)";
         for (const id in rowEls) {
           const e = rowEls[id];
           e.row.classList.toggle("on", !!snap.buttons[id]);
-          if (e.hasLed) e.led.classList.toggle("lit", !lost && snap.led === id);
+          if (e.hasLed) e.led.classList.toggle("lit", snap.led === id);
         }
         cycleEl.textContent = rowEls[snap.led] ? rowEls[snap.led].label : "—";
       }
-      poll();
-      setInterval(poll, 100);
+
+      // Live push stream — the bridge sends an event the instant the ESP
+      // reports, so a press shows up with no polling delay. EventSource
+      // reconnects on its own if the stream drops.
+      const es = new EventSource("events");
+      es.onmessage = (ev) => {
+        try { applyState(JSON.parse(ev.data)); } catch (e) { /* skip */ }
+      };
+
+      // liveness watchdog: no event for a while -> the board has gone quiet
+      setInterval(() => {
+        if (!lastEventAt || Date.now() - lastEventAt < 1500) return;
+        statusEl.textContent = "ESP SIGNAL LOST";
+        statusEl.style.color = "#d8a25d";
+        for (const id in rowEls) {
+          rowEls[id].row.classList.remove("on");
+          rowEls[id].led.classList.remove("lit");
+        }
+      }, 500);
     }
   })();
   </script>

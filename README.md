@@ -31,7 +31,7 @@ cycle reaches that button. The firmware lights each LED in turn so you can
 confirm every LED physically works.
 
 ```
-ESP32  --USB serial JSON-->  bridge service  --GET /state-->  playfield screen
+ESP32  --USB serial JSON-->  bridge service  --SSE /events-->  playfield screen
 ```
 
 - **`site/config/buttons.json`** — the single source of truth: each button's
@@ -41,7 +41,8 @@ ESP32  --USB serial JSON-->  bridge service  --GET /state-->  playfield screen
   committed automatically by `.github/workflows/firmware.yml`; the cabinet
   flashes the committed `firmware/build/firmware.bin` on load.
 - **`bridge/`** — a dependency-free Node service that reads the ESP serial
-  device and serves the latest state at `/state`.
+  device and pushes each update to the screen over Server-Sent Events
+  (`/events`); also serves a one-shot snapshot at `/state`.
 
 If you rewire, edit `buttons.json` **and** the table in
 `firmware/src/main.cpp`. See `firmware/README.md`.
