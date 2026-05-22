@@ -1,0 +1,73 @@
+{
+  "_comment": "Cabinet button + LED test map. Single source of truth, shared by the ESP32 firmware and the debug screen. Each button: `gpio` is the ESP32 input pin (wired to GND, read with an internal pull-up when `active_low`); `led` is `false` when the button has no addressable LED, or { \"gpio\": <pin> } once an addressable LED is wired. When LEDs exist the firmware drives them in a repeating cycle so each can be eyeballed. NOTE: GPIO 34-39 are input-only and have NO internal pull-up — a button on those pins needs an external pull-up resistor. If you rewire, edit this file AND the matching table in firmware/src/main.cpp.",
+  "device": "esp32",
+  "poll_hz": 200,
+  "debounce_ms": 8,
+  "led_cycle_ms": 600,
+  "buttons": [
+    {
+      "id": "black-left",
+      "label": "Black Left",
+      "gpio": 16,
+      "active_low": true,
+      "led": false
+    },
+    {
+      "id": "white-left",
+      "label": "White Left",
+      "gpio": 4,
+      "active_low": true,
+      "led": false
+    },
+    {
+      "id": "front-left-green",
+      "label": "Front Left Green",
+      "gpio": 17,
+      "active_low": true,
+      "led": false
+    },
+    {
+      "id": "front-left-yellow",
+      "label": "Front Left Yellow",
+      "gpio": 18,
+      "active_low": true,
+      "led": false
+    },
+    {
+      "id": "front-left-red",
+      "label": "Front Left Red",
+      "gpio": 19,
+      "active_low": true,
+      "led": false
+    },
+    {
+      "id": "black-right",
+      "label": "Black Right",
+      "gpio": 13,
+      "active_low": true,
+      "led": false
+    },
+    {
+      "id": "white-right",
+      "label": "White Right",
+      "gpio": 25,
+      "active_low": true,
+      "led": false
+    },
+    {
+      "id": "front-white",
+      "label": "Front White",
+      "gpio": 33,
+      "active_low": true,
+      "led": false
+    },
+    {
+      "id": "plunger",
+      "label": "Plunger",
+      "gpio": 34,
+      "active_low": true,
+      "input_only": true,
+      "led": false
+    }
+  ]
+}

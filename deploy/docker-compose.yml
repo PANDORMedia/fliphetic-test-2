@@ -1,13 +1,32 @@
-# One nginx service backs all three screens. The fliphetic.toml [screens]
-# block points each screen at /?screen=<role> — the page reads that param.
+# Two services:
+#   debug  — nginx, serves all three screens (?screen=<role>) and proxies
+#            /state to the bridge.
+#   bridge — reads the ESP32 tester's JSON over USB serial, serves GET /state.
 services:
   debug:
     image: nginx:alpine
     volumes:
       - ../site:/usr/share/nginx/html:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
     ports: ["0:80"]
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost/"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
+      interval: 5s
+      timeout: 2s
+      retries: 5
+
+  bridge:
+    image: public.ecr.aws/docker/library/node:20-alpine
+    working_dir: /app
+    volumes:
+      - ../bridge:/app:ro
+    command: ["node", "server.js"]
+    # The cabinet's ESP32 (CP2102 USB-UART). The by-id path is stable across
+    # reboots; docker resolves the symlink and presents it as /dev/esp.
+    devices:
+      - "/dev/serial/by-id/usb-Silicon_Labs_CP2102N_USB_to_UART_Bridge_Controller_462c4b154a99e8118bcdb920c3e5cfbd-if00-port0:/dev/esp"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8091/"]
       interval: 5s
       timeout: 2s
       retries: 5

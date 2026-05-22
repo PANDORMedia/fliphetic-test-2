@@ -129,6 +129,77 @@
       letter-spacing: 0.18em; border-bottom: 1px solid rgba(93,216,106,0.18);
     }
 
+    /* ---- button / LED test panel (playfield only) ---- */
+    #btnpanel {
+      display: none;            /* shown by JS on the playfield screen only */
+      position: fixed; z-index: 6;
+      top: 50%; right: clamp(20px, 3vw, 64px);
+      transform: translateY(-50%);
+      width: clamp(330px, 27vw, 560px);
+      background: rgba(2, 8, 3, 0.88);
+      border: 2px solid var(--accent);
+      border-radius: 8px;
+      box-shadow: 0 0 30px rgba(93,216,106,0.25),
+                  0 0 80px rgba(0,0,0,0.9) inset;
+      padding: clamp(14px, 2.4vh, 26px) clamp(14px, 1.7vw, 24px);
+    }
+    .bp-title {
+      font-family: "Press Start 2P", monospace;
+      font-size: clamp(10px, 1.5vh, 15px); letter-spacing: 0.12em;
+      color: var(--accent); text-shadow: 0 0 12px var(--accent);
+      margin-bottom: 6px;
+    }
+    .bp-sub {
+      font-size: clamp(13px, 1.8vh, 19px); letter-spacing: 0.08em;
+      color: var(--green-dim); margin-bottom: clamp(8px, 1.6vh, 16px);
+    }
+    .bp-row {
+      display: flex; align-items: center; gap: clamp(8px, 0.9vw, 14px);
+      padding: clamp(5px, 1vh, 10px) 4px;
+      border-bottom: 1px solid rgba(93,216,106,0.12);
+    }
+    .bp-dot {
+      width: clamp(16px, 2vh, 22px); height: clamp(16px, 2vh, 22px);
+      border-radius: 50%; flex: none;
+      border: 2px solid var(--green-dim); background: #07140a;
+    }
+    .bp-row.on .bp-dot {
+      background: var(--green-bright); border-color: var(--green-bright);
+      box-shadow: 0 0 14px var(--green), 0 0 28px var(--green);
+    }
+    .bp-label {
+      flex: 1; min-width: 0;
+      font-size: clamp(15px, 2.2vh, 25px); color: var(--green);
+      letter-spacing: 0.03em;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .bp-row.on .bp-label { color: var(--green-bright); text-shadow: 0 0 7px var(--green); }
+    .bp-pin {
+      flex: none; font-size: clamp(11px, 1.5vh, 16px);
+      color: var(--green-dim); letter-spacing: 0.04em;
+    }
+    .bp-led {
+      width: clamp(14px, 1.8vh, 20px); height: clamp(14px, 1.8vh, 20px);
+      border-radius: 50%; flex: none;
+      border: 2px solid #6a5a1a; background: #14100a;
+    }
+    .bp-led.none { border: 2px dashed rgba(93,216,106,0.28); background: transparent; }
+    .bp-led.lit {
+      background: #ffd23c; border-color: #ffd23c;
+      box-shadow: 0 0 15px #ffb02e, 0 0 30px #ff8c1a;
+    }
+    .bp-ledpin {
+      flex: none; width: 4.2em; text-align: right;
+      font-size: clamp(11px, 1.5vh, 16px); color: #6a5a1a; letter-spacing: 0.04em;
+    }
+    .bp-ledpin.none { color: rgba(93,216,106,0.25); }
+    .bp-foot {
+      margin-top: clamp(8px, 1.6vh, 16px);
+      font-size: clamp(12px, 1.6vh, 17px); letter-spacing: 0.06em;
+      color: var(--green-dim);
+    }
+    .bp-foot .hl { color: #ffd23c; text-shadow: 0 0 8px #ff8c1a; }
+
     /* ---- layer 9: CRT scanlines ---- */
     body::after {
       content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 9;
@@ -178,6 +249,8 @@
       <tr><td class="k">BROWSER</td>   <td class="v" id="d-browser">—</td></tr>
     </table>
   </div>
+
+  <div id="btnpanel"></div>
 
   <script>
   (() => {
@@ -313,6 +386,88 @@
     setInterval(tick, 1000);
     setInterval(refresh, 5000);          // keep network/geometry fresh
     setInterval(drawRain, 55);
+
+    // ---- button / LED test panel (playfield screen only) ----------------
+    // Loads the shared site/config/buttons.json, then polls /state (the ESP
+    // serial bridge) and lights a row when its button is pressed / its LED is
+    // the one the firmware is currently cycling.
+    if (role === "playfield") initButtonPanel();
+
+    async function initButtonPanel() {
+      const host = $("btnpanel");
+      host.style.display = "block";
+
+      let cfg;
+      try {
+        const r = await fetch("config/buttons.json", { cache: "no-store" });
+        cfg = await r.json();
+      } catch (e) {
+        host.innerHTML =
+          '<div class="bp-title">BUTTON / LED TEST</div>' +
+          '<div class="bp-sub">config/buttons.json not found</div>';
+        return;
+      }
+
+      const list = Array.isArray(cfg.buttons) ? cfg.buttons : [];
+      host.innerHTML =
+        '<div class="bp-title">BUTTON / LED TEST</div>' +
+        '<div class="bp-sub" id="bp-status">WAITING FOR ESP&hellip;</div>' +
+        '<div id="bp-rows"></div>' +
+        '<div class="bp-foot">LED CYCLE: <span class="hl" id="bp-cycle">&mdash;</span></div>';
+
+      const rowsHost = $("bp-rows");
+      const rowEls = {};
+      for (const b of list) {
+        const hasLed = b.led && typeof b.led.gpio === "number";
+        const row = document.createElement("div");
+        row.className = "bp-row";
+        row.innerHTML =
+          '<div class="bp-dot"></div>' +
+          '<div class="bp-label">' + (b.label || b.id) + '</div>' +
+          '<div class="bp-pin">IO' + b.gpio + '</div>' +
+          '<div class="bp-led ' + (hasLed ? "" : "none") + '"></div>' +
+          '<div class="bp-ledpin ' + (hasLed ? "" : "none") + '">' +
+            (hasLed ? "IO" + b.led.gpio : "no led") + '</div>';
+        rowsHost.appendChild(row);
+        rowEls[b.id] = {
+          row, hasLed,
+          led: row.querySelector(".bp-led"),
+          label: b.label || b.id,
+        };
+      }
+
+      const statusEl = $("bp-status"), cycleEl = $("bp-cycle");
+      let lastUp = null, stale = 0;
+
+      async function poll() {
+        let snap = null;
+        try {
+          const r = await fetch("state", { cache: "no-store" });
+          if (r.ok) snap = await r.json();
+        } catch (e) { /* bridge unreachable */ }
+
+        if (!snap || !snap.buttons) {
+          statusEl.textContent = "WAITING FOR ESP…";
+          statusEl.style.color = "var(--green-dim)";
+          return;
+        }
+        // the ESP's `up` (millis) should keep advancing; if it freezes the
+        // board has stopped reporting
+        if (snap.up === lastUp) stale++; else { stale = 0; lastUp = snap.up; }
+        const lost = stale > 12;
+        statusEl.textContent = lost ? "ESP SIGNAL LOST" : "ESP CONNECTED";
+        statusEl.style.color = lost ? "#d8a25d" : "var(--green-bright)";
+
+        for (const id in rowEls) {
+          const e = rowEls[id];
+          e.row.classList.toggle("on", !!snap.buttons[id]);
+          if (e.hasLed) e.led.classList.toggle("lit", !lost && snap.led === id);
+        }
+        cycleEl.textContent = rowEls[snap.led] ? rowEls[snap.led].label : "—";
+      }
+      poll();
+      setInterval(poll, 100);
+    }
   })();
   </script>
 </body>

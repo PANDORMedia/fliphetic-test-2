@@ -1,1 +1,5 @@
 .DS_Store
+
+# PlatformIO build tree. The CI-built merged binary at firmware/build/
+# firmware.bin IS committed (the cabinet flashes it) — only .pio/ is ignored.
+firmware/.pio/

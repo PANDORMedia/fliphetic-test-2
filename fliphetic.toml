@@ -2,13 +2,13 @@
 id          = "fliphetic-test-2"
 name        = "Fliphetic Debug Screen"
 authors     = ["PANDOR Media"]
-description = "Per-screen calibration & diagnostics — positioning grid, live geometry readout, cab info. Matrix-themed. One nginx service backs all three screens via the ?screen= query param."
+description = "Per-screen calibration & diagnostics plus a cabinet button/LED tester. The playfield view shows live button state and the LED cycle, read from an ESP32 over USB serial. Matrix-themed. One nginx service backs all three screens via ?screen=; a bridge service relays the ESP serial."
 
 [deploy]
 strategy = "branch"
 ref      = "main"
 
-# One docker service ("debug") serves every screen; each screen gets a
+# One docker "debug" service serves every screen; each screen gets a
 # different ?screen= query param so the page can label & color itself.
 [screens]
 playfield = { service = "debug", port = 80, path = "/?screen=playfield" }
@@ -17,6 +17,14 @@ dmd       = { service = "debug", port = 80, path = "/?screen=dmd" }
 
 [compose]
 file = "deploy/docker-compose.yml"
-ready_timeout = 15
+ready_timeout = 30
 
-# No [esp32] — a calibration screen should never reflash firmware.
+# The cabinet flashes the button/LED tester firmware to the "esp32" device on
+# every load. required = false: a missing board or a failed flash only logs a
+# warning, it does not abort the load. The merged binary is built and committed
+# by .github/workflows/firmware.yml.
+[esp32.esp32]
+firmware   = "firmware/build/firmware.bin"
+chip       = "esp32"
+flash_addr = "0x0"
+required   = false
