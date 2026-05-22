@@ -129,9 +129,9 @@
       letter-spacing: 0.18em; border-bottom: 1px solid rgba(93,216,106,0.18);
     }
 
-    /* ---- button / LED test panel (playfield only) ---- */
-    #btnpanel {
-      display: none;            /* shown by JS on the playfield screen only */
+    /* ---- side panels: button/LED test (playfield), connectivity (backglass) ---- */
+    #btnpanel, #netpanel {
+      display: none;            /* shown by JS on the relevant screen only */
       position: fixed; z-index: 6;
       top: 50%; right: clamp(20px, 3vw, 64px);
       transform: translateY(-50%);
@@ -174,6 +174,12 @@
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .bp-row.on .bp-label { color: var(--green-bright); text-shadow: 0 0 7px var(--green); }
+    /* connectivity-test failure state — red dot/label */
+    .bp-row.fail .bp-dot {
+      background: #2a0c0c; border-color: #e0726b;
+      box-shadow: 0 0 12px #e0726b;
+    }
+    .bp-row.fail .bp-label { color: #e8a9a4; }
     .bp-pin {
       flex: none; font-size: clamp(11px, 1.5vh, 16px);
       color: var(--green-dim); letter-spacing: 0.04em;
@@ -251,6 +257,7 @@
   </div>
 
   <div id="btnpanel"></div>
+  <div id="netpanel"></div>
 
   <script>
   (() => {
@@ -392,6 +399,7 @@
     // serial bridge) and lights a row when its button is pressed / its LED is
     // the one the firmware is currently cycling.
     if (role === "playfield") initButtonPanel();
+    if (role === "backglass") initNetPanel();
 
     async function initButtonPanel() {
       const host = $("btnpanel");
@@ -468,6 +476,75 @@
         for (const id in rowEls) {
           rowEls[id].row.classList.remove("on");
           rowEls[id].led.classList.remove("lit");
+        }
+      }, 500);
+    }
+
+    // ---- connectivity test panel (backglass screen only) ----------------
+    // Reads the ESP32's `net` block from the same /events stream and shows
+    // three checks: WiFi association, internet (8.8.8.8) and a container on
+    // the cab (the `probe` service). The ESP re-tests every ~20s; this just
+    // renders whatever it last reported.
+    async function initNetPanel() {
+      const host = $("netpanel");
+      host.style.display = "block";
+      host.innerHTML =
+        '<div class="bp-title">CONNECTIVITY TEST</div>' +
+        '<div class="bp-sub" id="np-status">WAITING FOR ESP&hellip;</div>' +
+        '<div id="np-rows"></div>' +
+        '<div class="bp-foot">ESP IP: <span class="hl" id="np-ip">&mdash;</span></div>';
+
+      const checks = [
+        { key: "wifi",     label: "WiFi assoc", target: "FLIPHETIC_CAB0" },
+        { key: "internet", label: "Internet",   target: "8.8.8.8" },
+        { key: "docker",   label: "Docker svc", target: "10.42.0.1:8099" },
+      ];
+      const rowsHost = $("np-rows");
+      const rowEls = {};
+      for (const c of checks) {
+        const row = document.createElement("div");
+        row.className = "bp-row";
+        row.innerHTML =
+          '<div class="bp-dot"></div>' +
+          '<div class="bp-label">' + c.label + '</div>' +
+          '<div class="bp-pin">' + c.target + '</div>';
+        rowsHost.appendChild(row);
+        rowEls[c.key] = row;
+      }
+
+      const statusEl = $("np-status"), ipEl = $("np-ip");
+      let lastEventAt = 0;
+
+      const mark = (row, ok) => {
+        row.classList.toggle("on", ok);
+        row.classList.toggle("fail", !ok);
+      };
+
+      function applyState(snap) {
+        if (!snap || !snap.net) return;     // ESP without connectivity firmware
+        lastEventAt = Date.now();
+        statusEl.textContent = "ESP CONNECTED";
+        statusEl.style.color = "var(--green-bright)";
+        const net = snap.net;
+        mark(rowEls.wifi,     net.wifi === "connected");
+        mark(rowEls.internet, !!net.internet);
+        mark(rowEls.docker,   !!net.docker);
+        ipEl.textContent = (net.ip && net.ip !== "0.0.0.0") ? net.ip : "—";
+      }
+
+      const es = new EventSource("events");
+      es.onmessage = (ev) => {
+        try { applyState(JSON.parse(ev.data)); } catch (e) { /* skip */ }
+      };
+
+      // liveness watchdog — the ESP heartbeats every ~250ms
+      setInterval(() => {
+        if (!lastEventAt || Date.now() - lastEventAt < 1500) return;
+        statusEl.textContent = "ESP SIGNAL LOST";
+        statusEl.style.color = "#d8a25d";
+        for (const k in rowEls) {
+          rowEls[k].classList.remove("on");
+          rowEls[k].classList.remove("fail");
         }
       }, 500);
     }

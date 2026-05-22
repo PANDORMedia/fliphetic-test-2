@@ -1,7 +1,11 @@
-# Two services:
+# Three services:
 #   debug  — nginx, serves all three screens (?screen=<role>) and proxies
 #            /state to the bridge.
 #   bridge — reads the ESP32 tester's JSON over USB serial, serves GET /state.
+#   probe  — a tiny HTTP service the ESP32 connects to over WiFi, to prove it
+#            can reach a container on the cab. Published on a FIXED host port
+#            (8099) so the firmware can target it at <AP-gateway>:8099 — this
+#            is the backglass "DOCKER SVC" connectivity test.
 services:
   debug:
     image: nginx:alpine
@@ -26,6 +30,18 @@ services:
       - "/dev/ttyUSB0:/dev/esp"
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8091/"]
+      interval: 5s
+      timeout: 2s
+      retries: 5
+
+  probe:
+    image: nginx:alpine
+    volumes:
+      - ../probe:/usr/share/nginx/html:ro
+    # FIXED host port — the ESP32 firmware hardcodes <AP-gateway>:8099.
+    ports: ["8099:80"]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
       interval: 5s
       timeout: 2s
       retries: 5
