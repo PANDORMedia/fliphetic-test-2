@@ -4,6 +4,7 @@
 //   GET /events  — Server-Sent Events: each ESP line is pushed instantly
 //                  (low latency; the debug screen uses this).
 //   GET /state   — the most recent line as a one-shot snapshot.
+//   GET /env     — this container's environment (the DMD env-var test block).
 // Dependency-free: pure Node, plus busybox `stty` to set the line mode.
 //
 // If the device is absent (ESP not flashed or not plugged in) the bridge
@@ -89,6 +90,17 @@ const server = http.createServer((req, res) => {
   if (req.method === 'GET' && req.url === '/state') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(state);
+    return;
+  }
+
+  if (req.method === 'GET' && req.url === '/env') {
+    // This container's own environment, so the debug DMD screen can show what
+    // the dashboard's per-app env vars actually injected. Sorted for a stable
+    // view across refreshes.
+    const env = {};
+    for (const k of Object.keys(process.env).sort()) env[k] = process.env[k];
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(env));
     return;
   }
 

@@ -129,8 +129,8 @@
       letter-spacing: 0.18em; border-bottom: 1px solid rgba(93,216,106,0.18);
     }
 
-    /* ---- side panels: button/LED test (playfield), connectivity (backglass) ---- */
-    #btnpanel, #netpanel {
+    /* ---- side panels: buttons (playfield), connectivity (backglass), env (dmd) ---- */
+    #btnpanel, #netpanel, #envpanel {
       display: none;            /* shown by JS on the relevant screen only */
       position: fixed; z-index: 6;
       top: 50%; right: clamp(20px, 3vw, 64px);
@@ -206,6 +206,25 @@
     }
     .bp-foot .hl { color: #ffd23c; text-shadow: 0 0 8px #ff8c1a; }
 
+    /* env-var list (dmd) — scrollable KEY / value rows */
+    .ev-scroll {
+      max-height: clamp(220px, 52vh, 620px); overflow-y: auto; padding-right: 4px;
+    }
+    .ev-row {
+      display: flex; gap: clamp(8px, 0.9vw, 14px);
+      padding: clamp(3px, 0.7vh, 7px) 4px;
+      border-bottom: 1px solid rgba(93,216,106,0.12);
+    }
+    .ev-k {
+      flex: none; max-width: 46%; word-break: break-all;
+      color: var(--green-bright); text-shadow: 0 0 6px var(--green);
+      font-size: clamp(12px, 1.7vh, 19px);
+    }
+    .ev-v {
+      flex: 1; min-width: 0; word-break: break-all;
+      color: var(--green-dim); font-size: clamp(12px, 1.7vh, 19px);
+    }
+
     /* ---- layer 9: CRT scanlines ---- */
     body::after {
       content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 9;
@@ -258,6 +277,7 @@
 
   <div id="btnpanel"></div>
   <div id="netpanel"></div>
+  <div id="envpanel"></div>
 
   <script>
   (() => {
@@ -400,6 +420,7 @@
     // the one the firmware is currently cycling.
     if (role === "playfield") initButtonPanel();
     if (role === "backglass") initNetPanel();
+    if (role === "dmd") initEnvPanel();
 
     async function initButtonPanel() {
       const host = $("btnpanel");
@@ -547,6 +568,51 @@
           rowEls[k].classList.remove("fail");
         }
       }, 500);
+    }
+
+    // ---- env-var test panel (dmd screen only) ---------------------------
+    // Fetches the bridge container's environment from /env and lists it, so a
+    // variable set on the dashboard's app-settings page can be confirmed to
+    // have reached the container. Re-fetches every few seconds.
+    async function initEnvPanel() {
+      const host = $("envpanel");
+      host.style.display = "block";
+      host.innerHTML =
+        '<div class="bp-title">ENVIRONMENT VARIABLES</div>' +
+        '<div class="bp-sub">bridge container &middot; injected by the dashboard</div>' +
+        '<div id="ev-rows" class="ev-scroll"></div>' +
+        '<div class="bp-foot"><span class="hl" id="ev-count">&mdash;</span> variables</div>';
+
+      const rowsHost = $("ev-rows"), countEl = $("ev-count");
+
+      async function load() {
+        let env;
+        try {
+          const r = await fetch("env", { cache: "no-store" });
+          env = await r.json();
+        } catch (e) {
+          rowsHost.innerHTML =
+            '<div class="bp-sub">/env unreachable — bridge container down?</div>';
+          countEl.textContent = "0";
+          return;
+        }
+        const keys = Object.keys(env).sort();
+        countEl.textContent = keys.length;
+        rowsHost.innerHTML = keys.length
+          ? keys.map((k) =>
+              '<div class="ev-row"><span class="ev-k">' + esc(k) + '</span>' +
+              '<span class="ev-v">' + esc(env[k]) + '</span></div>').join("")
+          : '<div class="bp-sub">no variables</div>';
+      }
+
+      load();
+      setInterval(load, 4000);
+    }
+
+    // HTML-escape arbitrary env names/values before inserting into the DOM.
+    function esc(s) {
+      return String(s).replace(/[&<>]/g, (c) =>
+        ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]);
     }
   })();
   </script>
